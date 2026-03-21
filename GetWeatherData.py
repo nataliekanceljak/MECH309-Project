@@ -141,6 +141,3 @@ if __name__ == "__main__":
     plt.ylabel("T [°C]")
     plt.tight_layout()
     plt.show()
-
-print("natalie is here")
-print("sally is here")
