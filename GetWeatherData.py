@@ -95,12 +95,16 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     hour = df.index.hour.to_numpy()
     omega = 2 * math.pi / 24.0
     # TODO: Student can add whatever you like to the dataset here. Example here
+    # daily cycle terms 
     df["sin_day"] = np.sin(omega * hour)
     df["cos_day"] = np.cos(omega * hour)
 
     doy = df.index.dayofyear.to_numpy()
     omega_y = 2 * math.pi / 365.25
     # TODO: Student can add whatever you like to the dataset here
+    # add seasonal cycle terms
+    df["sin_year"] = np.sin(omega_y * doy)
+    df["cos_year"] = np.cos(omega_y * doy)
 
     return df
 
@@ -118,10 +122,17 @@ def split_train_val(data: pd.DataFrame, val_hours: int) -> Tuple[pd.DataFrame, p
         raise ValueError("Not enough samples for requested validation window.")
     return data.iloc[:-val_hours].copy(), data.iloc[-val_hours:].copy()
 
+# contruct predictor variable matrix
+def construct_y(df, horizon):
+    """
+    
+    """
+
 
 if __name__ == "__main__":
-    start_date = "2026-01-01"
-    end_date = "2026-03-07"
+    # use data caputring all seasons 
+    start_date = "2025-01-01"
+    end_date = "2025-12-31"
     
     montreal = Location(
         name="Montreal, QC",
@@ -134,6 +145,10 @@ if __name__ == "__main__":
     df_raw = fetch_open_meteo_hourly(start_date, end_date, location=montreal)
     print("Preprocessing...")
     df = preprocess(df_raw)
+
+    # add temperature and wind lagged terms for design matrix
+    df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
+    df = add_lags(df, "W", [1, 2, 3, 6])
 
     plt.figure()
     df["T"].plot(linewidth=1)
