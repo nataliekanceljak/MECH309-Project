@@ -94,17 +94,18 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     # Diurnal + seasonal features
     hour = df.index.hour.to_numpy()
     omega = 2 * math.pi / 24.0
-    # TODO: Student can add whatever you like to the dataset here. Example here
+    
     df["sin_day"] = np.sin(omega * hour)
     df["cos_day"] = np.cos(omega * hour)
 
     doy = df.index.dayofyear.to_numpy()
     omega_y = 2 * math.pi / 365.25
-    # TODO: Student can add whatever you like to the dataset here
+
+    df["sin_year"] = np.sin(omega_y * doy)
+    df["cos_year"] = np.cos(omega_y * doy)
 
     return df
 
-# TODO: Students you might find this function useful
 def add_lags(df: pd.DataFrame, col: str, lags: List[int]) -> pd.DataFrame:
     for L in lags:
         if L <= 0:
@@ -112,16 +113,43 @@ def add_lags(df: pd.DataFrame, col: str, lags: List[int]) -> pd.DataFrame:
         df[f"{col}_lag{L}"] = df[col].shift(L)
     return df
 
-# TODO: Students you might find this function useful
 def split_train_val(data: pd.DataFrame, val_hours: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
     if len(data) <= val_hours + 10:
         raise ValueError("Not enough samples for requested validation window.")
     return data.iloc[:-val_hours].copy(), data.iloc[-val_hours:].copy()
 
+def lls_qr(X_train, y_train):
+    """
+    Compute theta using linear least squares via QR.
+
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    """
+    A = np.asarray(X_train, dtype=float)
+    b = np.asarray(y_train, dtype=float).reshape(-1)
+
+    m, n = A.shape
+    Q = A.copy()
+    R = np.zeros((n, n))
+
+    for i in range(n):
+        R[i, i] = np.linalg.norm(Q[:, i])
+        Q[:, i] = Q[:, i] / R[i, i]
+
+        for j in range(i + 1, n):
+            R[i, j] = Q[:, i] @ Q[:, j]
+            Q[:, j] = Q[:, j] - R[i, j] * Q[:, i]
+
+    x = np.linalg.solve(R, Q.T @ b)
+    return x
+
 
 if __name__ == "__main__":
-    start_date = "2026-01-01"
-    end_date = "2026-03-07"
+    start_date = "2025-01-01"
+    end_date = "2025-12-31"
     
     montreal = Location(
         name="Montreal, QC",
@@ -135,9 +163,94 @@ if __name__ == "__main__":
     print("Preprocessing...")
     df = preprocess(df_raw)
 
+    print(f"Data between {start_date} and {end_date} is used.")
+    
+    df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
+    df = add_lags(df, "W", [1, 3, 6, 12])
+
+    horizon = 24  # number of hours to predict into future
+
+    # Features vector
+    features = [
+    "T", "W",
+    "T_lag1", "T_lag2", "T_lag24",
+    "W_lag1",
+    "sin_day", "cos_day",
+    "sin_year", "cos_year"
+    ]
+
+    # Temperature model
+    df["target"] = df["T"].shift(-horizon)
+
+    df_model = df.dropna()  # remove data with missing values
+
+    val_hours = 7 * 48  # validate on last 14 days
+    train, val = split_train_val(df_model, val_hours)
+
+    X_train = train[features].to_numpy()
+    y_train = train["target"].to_numpy()
+
+    X_val = val[features].to_numpy()
+    y_val_T = val["target"].to_numpy()
+
+    theta_T = lls_qr(X_train, y_train)  # compute theta
+    y_pred_T = X_val @ theta_T  # prediction equation
+
+    rmse_T = np.sqrt(np.mean((y_val_T - y_pred_T)**2))  # RMSE error
+    mae_T = np.mean(np.abs(y_val_T - y_pred_T))  # MAE error
+    print(f"RMSE Temperature:", rmse_T)
+    print(f"MAE Temperature:", mae_T)
+
+    # Plot of TEMP data for chosen interval
     plt.figure()
     df["T"].plot(linewidth=1)
     plt.title("Montreal hourly temperature (2m)")
-    plt.ylabel("T [°C]")
+    plt.ylabel("T (°C)")
     plt.tight_layout()
+    plt.show()
+
+    # Plot of true vs. predicted TEMP val data
+    plt.figure()
+    plt.plot(y_val_T, label="Actual")
+    plt.plot(y_pred_T, label="Predicted")
+    plt.xlabel("Time (hours)")
+    plt.ylabel("Temperature (°C)")
+    plt.title("Validation: Actual vs Predicted Temperature")
+    plt.legend()
+    plt.show()
+
+    # Wind speed model
+    df["target"] = df["W"].shift(-horizon)
+    df_model = df.dropna()
+
+    train, val = split_train_val(df_model, val_hours)
+
+    theta_W = lls_qr(X_train, y_train)
+
+    X_val = val[features].to_numpy()
+    y_val_W = val["target"].to_numpy()
+
+    y_pred_W = X_val @ theta_W
+
+    rmse_W = np.sqrt(np.mean((y_val_W - y_pred_W)**2))  # RMSE error
+    mae_W = np.mean(np.abs(y_val_W - y_pred_W))  # MAE error
+    print(f"RMSE Wind Speed:", rmse_W)
+    print(f"MAE Wind Speed:", mae_W)
+
+    # Plot of WIND data for chosen interval
+    plt.figure()
+    df["W"].plot(linewidth=1)
+    plt.title("Montreal hourly wind speed (10m)")
+    plt.ylabel("W (km/h)")
+    plt.tight_layout()
+    plt.show()
+
+    # Plot of true vs. predicted WIND val data
+    plt.figure()
+    plt.plot(y_val_W, label="Actual")
+    plt.plot(y_pred_W, label="Predicted")
+    plt.xlabel("Time (hours)")
+    plt.ylabel("Wind speed (km/h))")
+    plt.title("Validation: Actual vs Predicted Wind Speed")
+    plt.legend()
     plt.show()
