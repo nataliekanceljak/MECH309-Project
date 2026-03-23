@@ -95,12 +95,14 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     hour = df.index.hour.to_numpy()
     omega = 2 * math.pi / 24.0
     
+    # daily cycle terms 
     df["sin_day"] = np.sin(omega * hour)
     df["cos_day"] = np.cos(omega * hour)
 
     doy = df.index.dayofyear.to_numpy()
     omega_y = 2 * math.pi / 365.25
 
+    # yearly (seasonal) cycle terms
     df["sin_year"] = np.sin(omega_y * doy)
     df["cos_year"] = np.cos(omega_y * doy)
 
@@ -117,34 +119,6 @@ def split_train_val(data: pd.DataFrame, val_hours: int) -> Tuple[pd.DataFrame, p
     if len(data) <= val_hours + 10:
         raise ValueError("Not enough samples for requested validation window.")
     return data.iloc[:-val_hours].copy(), data.iloc[-val_hours:].copy()
-
-def lls_qr(X_train, y_train):
-    """
-    Compute theta using linear least squares via QR.
-
-    Parameters
-    ----------
-    
-    Returns
-    -------
-    """
-    A = np.asarray(X_train, dtype=float)
-    b = np.asarray(y_train, dtype=float).reshape(-1)
-
-    m, n = A.shape
-    Q = A.copy()
-    R = np.zeros((n, n))
-
-    for i in range(n):
-        R[i, i] = np.linalg.norm(Q[:, i])
-        Q[:, i] = Q[:, i] / R[i, i]
-
-        for j in range(i + 1, n):
-            R[i, j] = Q[:, i] @ Q[:, j]
-            Q[:, j] = Q[:, j] - R[i, j] * Q[:, i]
-
-    x = np.linalg.solve(R, Q.T @ b)
-    return x
 
 
 if __name__ == "__main__":
@@ -180,7 +154,7 @@ if __name__ == "__main__":
     ]
 
     # Temperature model
-    df["target"] = df["T"].shift(-horizon)
+    df["target_T"] = df["T"].shift(-horizon)
 
     df_model = df.dropna()  # remove data with missing values
 
@@ -188,12 +162,14 @@ if __name__ == "__main__":
     train, val = split_train_val(df_model, val_hours)
 
     X_train = train[features].to_numpy()
-    y_train = train["target"].to_numpy()
+    
+    # target values for temperature 
+    y_train_T = train["target_T"].to_numpy()
 
     X_val = val[features].to_numpy()
-    y_val_T = val["target"].to_numpy()
+    y_val_T = val["target_T"].to_numpy()
 
-    theta_T = lls_qr(X_train, y_train)  # compute theta
+    theta_T, _, _, _ = np.linalg.lstsq(X_train, y_train_T)    # compute theta
     y_pred_T = X_val @ theta_T  # prediction equation
 
     rmse_T = np.sqrt(np.mean((y_val_T - y_pred_T)**2))  # RMSE error
@@ -220,15 +196,18 @@ if __name__ == "__main__":
     plt.show()
 
     # Wind speed model
-    df["target"] = df["W"].shift(-horizon)
+    df["target_W"] = df["W"].shift(-horizon)
     df_model = df.dropna()
 
     train, val = split_train_val(df_model, val_hours)
+    
+    # target values for wind 
+    y_train_W = train["target_W"].to_numpy()
 
-    theta_W = lls_qr(X_train, y_train)
+    theta_W, _, _, _ = np.linalg.lstsq(X_train, y_train_W)
 
     X_val = val[features].to_numpy()
-    y_val_W = val["target"].to_numpy()
+    y_val_W = val["target_W"].to_numpy()
 
     y_pred_W = X_val @ theta_W
 
