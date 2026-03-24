@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     df_model = df.dropna()  # remove data with missing values
 
-    val_hours = 14 * 24  # validate on last 14 days
+    val_hours = 92 * 24  # validate on last 14 days
     train, val = split_train_val(df_model, val_hours)
     
     X_train = train[features].to_numpy()
