@@ -150,7 +150,8 @@ if __name__ == "__main__":
     "T_lag1", "T_lag2", "T_lag3", "T_lag6", "T_lag12", "T_lag24",
     "W_lag1", "W_lag3", "W_lag6", "W_lag12",
     "sin_day", "cos_day",
-    "sin_year", "cos_year"
+    "sin_year", "cos_year",
+    "Wd", "RH", "P", "Prec", "Cloud"
     ]
 
     # Temperature model
@@ -160,7 +161,7 @@ if __name__ == "__main__":
 
     val_hours = 7 * 48  # validate on last 14 days
     train, val = split_train_val(df_model, val_hours)
-
+    
     X_train = train[features].to_numpy()
     
     # target values for temperature 
