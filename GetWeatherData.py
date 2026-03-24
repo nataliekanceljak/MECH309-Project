@@ -142,7 +142,7 @@ if __name__ == "__main__":
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 24    # number of hours to predict into future
+    horizon = 6    # number of hours to predict into future
 
     # Features vector
     features = [
@@ -151,7 +151,6 @@ if __name__ == "__main__":
     "W_lag1", "W_lag3", "W_lag6", "W_lag12",
     "sin_day", "cos_day",
     "sin_year", "cos_year",
-    "Wd", "RH", "P", "Prec", "Cloud"
     ]
 
     # Temperature model
