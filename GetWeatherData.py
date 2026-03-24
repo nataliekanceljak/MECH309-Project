@@ -120,8 +120,15 @@ def split_train_val(data: pd.DataFrame, val_hours: int) -> Tuple[pd.DataFrame, p
         raise ValueError("Not enough samples for requested validation window.")
     return data.iloc[:-val_hours].copy(), data.iloc[-val_hours:].copy()
 
+# contruct predictor variable matrix
+def construct_y(df, horizon):
+    """
+    
+    """
+
 
 if __name__ == "__main__":
+    # use data caputring all seasons 
     start_date = "2025-01-01"
     end_date = "2025-12-31"
     
