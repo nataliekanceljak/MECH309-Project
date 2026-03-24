@@ -142,7 +142,8 @@ if __name__ == "__main__":
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 6    # number of hours to predict into future
+    horizon = 12    # number of hours to predict into future
+    print(f"The chosen horizon is {horizon} hours.")
 
     # Features vector
     features = [
@@ -233,3 +234,48 @@ if __name__ == "__main__":
     plt.title("Validation: Actual vs Predicted Wind Speed")
     plt.legend()
     plt.show()
+
+    # Baseline model for temperature
+    baseline_T = val["T"].to_numpy()
+
+    plt.figure()
+
+    plt.plot(y_val_T, label="Actual")
+    plt.plot(y_pred_T, label="Model")
+    plt.plot(baseline_T, label="Baseline")
+
+    plt.xlabel("Time (hours)")
+    plt.ylabel("Temperature (°C)")
+    plt.title("Actual vs Model vs Baseline for Temperature")
+
+    plt.legend()
+    plt.show()
+
+    rmse_base_T = np.sqrt(np.mean((y_val_T - baseline_T)**2))
+    mae_base_T  = np.mean(np.abs(y_val_T - baseline_T))
+
+    print(f"Baseline RMSE Temperature:", rmse_base_T)
+    print(f"Baseline MAE Temperature:", mae_base_T)
+
+    # Baseline model for wind
+    baseline_W = val["W"].to_numpy()
+
+    plt.figure()
+
+    plt.plot(y_val_W, label="Actual")
+    plt.plot(y_pred_W, label="Model")
+    plt.plot(baseline_W, label="Baseline")
+
+    plt.xlabel("Time (hours)")
+    plt.ylabel("Wind speed (km/h)")
+    plt.title("Actual vs Model vs Baseline for Wind Speed")
+
+    plt.legend()
+    plt.show()
+    
+    rmse_base_W = np.sqrt(np.mean((y_val_W - baseline_W)**2))
+    mae_base_W  = np.mean(np.abs(y_val_W - baseline_W))
+
+    print(f"Baseline RMSE Wind Speed:", rmse_base_W)
+    print(f"Baseline MAE Wind Speed:", mae_base_W)
+
