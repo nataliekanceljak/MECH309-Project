@@ -142,7 +142,7 @@ if __name__ == "__main__":
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 6    # number of hours to predict into future
+    horizon = 24    # number of hours to predict into future
 
     # Features vector
     features = [
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     df_model = df.dropna()  # remove data with missing values
 
-    val_hours = 92 * 24  # validate on last 14 days
+    val_hours = 92 * 24  # validate on last 30 days
     train, val = split_train_val(df_model, val_hours)
     
     X_train = train[features].to_numpy()
@@ -233,3 +233,4 @@ if __name__ == "__main__":
     plt.title("Validation: Actual vs Predicted Wind Speed")
     plt.legend()
     plt.show()
+
