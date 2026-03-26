@@ -122,8 +122,8 @@ def split_train_val(data: pd.DataFrame, val_hours: int) -> Tuple[pd.DataFrame, p
 
 if __name__ == "__main__":
     # use data caputring all seasons 
-    start_date = "2025-01-01"
-    end_date = "2025-12-31"
+    start_date = "2024-09-01"
+    end_date = "2025-08-31"
     
     montreal = Location(
         name="Montreal, QC",
@@ -142,9 +142,8 @@ if __name__ == "__main__":
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 12    # number of hours to predict into future
-    print(f"The chosen horizon is {horizon} hours.")
-
+    horizon = 1    # number of hours to predict into future
+    
     # Features vector
     features = [
     "T", "W",
@@ -159,7 +158,7 @@ if __name__ == "__main__":
 
     df_model = df.dropna()  # remove data with missing values
 
-    val_hours = 92 * 24  # validate on last 30 days
+    val_hours = 59 * 24  # validate on Dec, Jan, Feb
     train, val = split_train_val(df_model, val_hours)
     
     X_train = train[features].to_numpy()
@@ -235,47 +234,60 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
-    # Baseline model for temperature
-    baseline_T = val["T"].to_numpy()
-
-    plt.figure()
-
-    plt.plot(y_val_T, label="Actual")
-    plt.plot(y_pred_T, label="Model")
-    plt.plot(baseline_T, label="Baseline")
-
-    plt.xlabel("Time (hours)")
-    plt.ylabel("Temperature (°C)")
-    plt.title("Actual vs Model vs Baseline for Temperature")
-
-    plt.legend()
-    plt.show()
-
-    rmse_base_T = np.sqrt(np.mean((y_val_T - baseline_T)**2))
-    mae_base_T  = np.mean(np.abs(y_val_T - baseline_T))
-
-    print(f"Baseline RMSE Temperature:", rmse_base_T)
-    print(f"Baseline MAE Temperature:", mae_base_T)
-
-    # Baseline model for wind
-    baseline_W = val["W"].to_numpy()
-
-    plt.figure()
-
-    plt.plot(y_val_W, label="Actual")
-    plt.plot(y_pred_W, label="Model")
-    plt.plot(baseline_W, label="Baseline")
-
-    plt.xlabel("Time (hours)")
-    plt.ylabel("Wind speed (km/h)")
-    plt.title("Actual vs Model vs Baseline for Wind Speed")
-
-    plt.legend()
-    plt.show()
+    # testing which features improve the prediction
+    additional_features = ["Wd", "RH", "P", "Prec", "Cloud"]
+    features_testing = [
+    "T", "W",
+    "T_lag1", "T_lag2", "T_lag3", "T_lag6", "T_lag12", "T_lag24",
+    "W_lag1", "W_lag3", "W_lag6", "W_lag12",
+    "sin_day", "cos_day",
+    "sin_year", "cos_year",
+    ]
     
-    rmse_base_W = np.sqrt(np.mean((y_val_W - baseline_W)**2))
-    mae_base_W  = np.mean(np.abs(y_val_W - baseline_W))
+    for i in range(len(additional_features)):
+        # add additional features one by one to analyze their effect on predictions
+        features_testing.append(additional_features[i])
+        X_train = train[features_testing].to_numpy()
+    
+        # target values for temperature 
+        y_train_T = train["target_T"].to_numpy()
 
-    print(f"Baseline RMSE Wind Speed:", rmse_base_W)
-    print(f"Baseline MAE Wind Speed:", mae_base_W)
+        X_val = val[features_testing].to_numpy()
+        y_val_T = val["target_T"].to_numpy()
 
+        theta_T, _, _, _ = np.linalg.lstsq(X_train, y_train_T)    # compute theta
+        y_pred_T = X_val @ theta_T  # prediction equation
+
+        rmse_T_new_feature = np.sqrt(np.mean((y_val_T - y_pred_T)**2))  # RMSE error
+        mae_T_new_feature = np.mean(np.abs(y_val_T - y_pred_T))  # MAE error
+
+        # Wind speed model
+        df["target_W"] = df["W"].shift(-horizon)
+        df_model = df.dropna()
+
+        train, val = split_train_val(df_model, val_hours)
+        
+        # target values for wind 
+        y_train_W = train["target_W"].to_numpy()
+
+        theta_W, _, _, _ = np.linalg.lstsq(X_train, y_train_W)
+
+        X_val = val[features_testing].to_numpy()
+        y_val_W = val["target_W"].to_numpy()
+
+        y_pred_W = X_val @ theta_W
+
+        rmse_W_new_feature = np.sqrt(np.mean((y_val_W - y_pred_W)**2))  # RMSE error
+        mae_W_new_feature = np.mean(np.abs(y_val_W - y_pred_W))  # MAE error
+
+        print(rmse_T_new_feature, mae_T_new_feature, rmse_W_new_feature, mae_W_new_feature)
+        # if error decreases overall with the new feature addition, add it to X
+        if (rmse_T_new_feature + mae_T_new_feature + rmse_W_new_feature + mae_W_new_feature) < (rmse_T + mae_T + rmse_W + mae_W):
+            features.append(additional_features[i])
+
+    print(features)
+
+    print("RMSE Temperature (updated features):", rmse_T_new_feature)
+    print("MAE Temperature (updated features):", mae_T_new_feature)
+    print("RMSE Wind Speed (updated features):", rmse_W_new_feature)
+    print("MAE Wind Speed (updated features):", mae_W_new_feature)
