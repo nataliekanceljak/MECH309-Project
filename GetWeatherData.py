@@ -151,7 +151,6 @@ if __name__ == "__main__":
     "W_lag1", "W_lag3", "W_lag6", "W_lag12",
     "sin_day", "cos_day",
     "sin_year", "cos_year",
-    "Wd", "RH", "P", "Prec", "Cloud",
     ]
 
     # Temperature model
@@ -289,11 +288,8 @@ if __name__ == "__main__":
     "sin_year", "cos_year",
     ]
     
-    # for plotting how error decreases - initiate lists
-    rmse_T_plot = []
-    mae_T_plot = []
-    rmse_W_plot =[]
-    mae_W_plot = []
+    # for plotting how error decreases - initiate list
+    total_error_sum =[]
     
     for i in range(len(additional_features)):
         # add additional features one by one to analyze their effect on predictions
@@ -311,10 +307,6 @@ if __name__ == "__main__":
 
         rmse_T_new_feature = np.sqrt(np.mean((y_val_T - y_pred_T)**2))  # RMSE error
         mae_T_new_feature = np.mean(np.abs(y_val_T - y_pred_T))  # MAE error
-
-        # append error lists to track how error changes with new feature addition
-        rmse_T_plot.append(rmse_T_new_feature)
-        mae_T_plot.append(mae_T_new_feature)
 
         # Wind speed model
         df["target_W"] = df["W"].shift(-horizon)
@@ -335,11 +327,12 @@ if __name__ == "__main__":
         rmse_W_new_feature = np.sqrt(np.mean((y_val_W - y_pred_W)**2))  # RMSE error
         mae_W_new_feature = np.mean(np.abs(y_val_W - y_pred_W))  # MAE error
 
-        rmse_W_plot.append(rmse_W_new_feature)
-        mae_W_plot.append(mae_W_new_feature)
-
         # if error decreases overall with the new feature addition, add it to X
-        if (rmse_T_new_feature + mae_T_new_feature + rmse_W_new_feature + mae_W_new_feature) < (rmse_T + mae_T + rmse_W + mae_W):
+        error_sum = rmse_T_new_feature + mae_T_new_feature + rmse_W_new_feature + mae_W_new_feature
+
+        total_error_sum.append(error_sum)
+
+        if (error_sum) < (rmse_T + mae_T + rmse_W + mae_W):
             features.append(additional_features[i])
 
     print(features)
@@ -351,25 +344,12 @@ if __name__ == "__main__":
 
     # plotting error improvement
     iteration = [1, 2, 3, 4, 5]
-    
-    # for temperature
-    plt.plot(iteration, rmse_T_plot, label="RMSE_T")
-    plt.plot(iteration, mae_T_plot, label="MAE_T")
+
+    plt.plot(iteration, total_error_sum, label = "total error sum")
 
     plt.xlabel("Iteration")
     plt.ylabel("Error")
     plt.title("RMSE and MAE for temperature over time")
-
-    plt.legend()
-    plt.show()
-
-    # for wind
-    plt.plot(iteration, rmse_W_plot, label="RMSE_W")
-    plt.plot(iteration, mae_W_plot, label="MAE_W")
-
-    plt.xlabel("Iteration")
-    plt.ylabel("Error")
-    plt.title("RMSE and MAE for wind over time")
 
     plt.legend()
     plt.show()
