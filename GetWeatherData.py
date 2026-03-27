@@ -142,7 +142,7 @@ if __name__ == "__main__":
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 1    # number of hours to predict into future
+    horizon = 12    # number of hours to predict into future
     
     # Features vector
     features = [
@@ -151,6 +151,7 @@ if __name__ == "__main__":
     "W_lag1", "W_lag3", "W_lag6", "W_lag12",
     "sin_day", "cos_day",
     "sin_year", "cos_year",
+    "Wd", "RH", "P", "Prec", "Cloud",
     ]
 
     # Temperature model
@@ -158,7 +159,7 @@ if __name__ == "__main__":
 
     df_model = df.dropna()  # remove data with missing values
 
-    val_hours = 92 * 24  # validate on Dec, Jan, Feb
+    val_hours = 92 * 24  # train Jun 1 2024-Apr 30 2025, validate Jun 1 2025-Aug 31 2025
     train, val = split_train_val(df_model, val_hours)
     
     X_train = train[features].to_numpy()
@@ -288,6 +289,12 @@ if __name__ == "__main__":
     "sin_year", "cos_year",
     ]
     
+    # for plotting how error decreases - initiate lists
+    rmse_T_plot = []
+    mae_T_plot = []
+    rmse_W_plot =[]
+    mae_W_plot = []
+    
     for i in range(len(additional_features)):
         # add additional features one by one to analyze their effect on predictions
         features_testing.append(additional_features[i])
@@ -304,6 +311,10 @@ if __name__ == "__main__":
 
         rmse_T_new_feature = np.sqrt(np.mean((y_val_T - y_pred_T)**2))  # RMSE error
         mae_T_new_feature = np.mean(np.abs(y_val_T - y_pred_T))  # MAE error
+
+        # append error lists to track how error changes with new feature addition
+        rmse_T_plot.append(rmse_T_new_feature)
+        mae_T_plot.append(mae_T_new_feature)
 
         # Wind speed model
         df["target_W"] = df["W"].shift(-horizon)
@@ -324,6 +335,9 @@ if __name__ == "__main__":
         rmse_W_new_feature = np.sqrt(np.mean((y_val_W - y_pred_W)**2))  # RMSE error
         mae_W_new_feature = np.mean(np.abs(y_val_W - y_pred_W))  # MAE error
 
+        rmse_W_plot.append(rmse_W_new_feature)
+        mae_W_plot.append(mae_W_new_feature)
+
         # if error decreases overall with the new feature addition, add it to X
         if (rmse_T_new_feature + mae_T_new_feature + rmse_W_new_feature + mae_W_new_feature) < (rmse_T + mae_T + rmse_W + mae_W):
             features.append(additional_features[i])
@@ -334,3 +348,29 @@ if __name__ == "__main__":
     print("MAE Temperature (updated features):", mae_T_new_feature)
     print("RMSE Wind Speed (updated features):", rmse_W_new_feature)
     print("MAE Wind Speed (updated features):", mae_W_new_feature)
+
+    # plotting error improvement
+    iteration = [1, 2, 3, 4, 5]
+    
+    # for temperature
+    plt.plot(iteration, rmse_T_plot, label="RMSE_T")
+    plt.plot(iteration, mae_T_plot, label="MAE_T")
+
+    plt.xlabel("Iteration")
+    plt.ylabel("Error")
+    plt.title("RMSE and MAE for temperature over time")
+
+    plt.legend()
+    plt.show()
+
+    # for wind
+    plt.plot(iteration, rmse_W_plot, label="RMSE_W")
+    plt.plot(iteration, mae_W_plot, label="MAE_W")
+
+    plt.xlabel("Iteration")
+    plt.ylabel("Error")
+    plt.title("RMSE and MAE for wind over time")
+
+    plt.legend()
+    plt.show()
+
