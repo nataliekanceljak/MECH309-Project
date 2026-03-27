@@ -122,7 +122,7 @@ def split_train_val(data: pd.DataFrame, val_hours: int) -> Tuple[pd.DataFrame, p
 
 if __name__ == "__main__":
     # use data caputring all seasons 
-    start_date = "2024-09-01"
+    start_date = "2024-06-01"
     end_date = "2025-08-31"
     
     montreal = Location(
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
     df_model = df.dropna()  # remove data with missing values
 
-    val_hours = 59 * 24  # validate on Dec, Jan, Feb
+    val_hours = 92 * 24  # validate on Dec, Jan, Feb
     train, val = split_train_val(df_model, val_hours)
     
     X_train = train[features].to_numpy()
@@ -234,6 +234,50 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
+    # Baseline model for temperature
+    baseline_T = val["T"].to_numpy()
+
+    plt.figure()
+
+    plt.plot(y_val_T, label="Actual")
+    plt.plot(y_pred_T, label="Model")
+    plt.plot(baseline_T, label="Baseline")
+
+    plt.xlabel("Time (hours)")
+    plt.ylabel("Temperature (°C)")
+    plt.title("Actual vs Model vs Baseline for Temperature")
+
+    plt.legend()
+    plt.show()
+
+    rmse_base_T = np.sqrt(np.mean((y_val_T - baseline_T)**2))
+    mae_base_T  = np.mean(np.abs(y_val_T - baseline_T))
+
+    print(f"Baseline RMSE Temperature:", rmse_base_T)
+    print(f"Baseline MAE Temperature:", mae_base_T)
+
+    # Baseline model for wind
+    baseline_W = val["W"].to_numpy()
+
+    plt.figure()
+
+    plt.plot(y_val_W, label="Actual")
+    plt.plot(y_pred_W, label="Model")
+    plt.plot(baseline_W, label="Baseline")
+
+    plt.xlabel("Time (hours)")
+    plt.ylabel("Wind speed (km/h)")
+    plt.title("Actual vs Model vs Baseline for Wind Speed")
+
+    plt.legend()
+    plt.show()
+    
+    rmse_base_W = np.sqrt(np.mean((y_val_W - baseline_W)**2))
+    mae_base_W  = np.mean(np.abs(y_val_W - baseline_W))
+
+    print(f"Baseline RMSE Wind Speed:", rmse_base_W)
+    print(f"Baseline MAE Wind Speed:", mae_base_W)
+    
     # testing which features improve the prediction
     additional_features = ["Wd", "RH", "P", "Prec", "Cloud"]
     features_testing = [
@@ -280,7 +324,6 @@ if __name__ == "__main__":
         rmse_W_new_feature = np.sqrt(np.mean((y_val_W - y_pred_W)**2))  # RMSE error
         mae_W_new_feature = np.mean(np.abs(y_val_W - y_pred_W))  # MAE error
 
-        print(rmse_T_new_feature, mae_T_new_feature, rmse_W_new_feature, mae_W_new_feature)
         # if error decreases overall with the new feature addition, add it to X
         if (rmse_T_new_feature + mae_T_new_feature + rmse_W_new_feature + mae_W_new_feature) < (rmse_T + mae_T + rmse_W + mae_W):
             features.append(additional_features[i])
