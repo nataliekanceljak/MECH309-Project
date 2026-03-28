@@ -285,9 +285,6 @@ if __name__ == "__main__":
     "sin_day", "cos_day",
     "sin_year", "cos_year",
     ]
-    
-    # for plotting how error decreases - initiate list
-    total_error_sum =[]
 
     # intiate current error
     y_pred_T_testing, y_val_T_testing = build_prediction_model(train, val, features_testing, "target_T")
@@ -300,6 +297,9 @@ if __name__ == "__main__":
     # wind
     rmse_W_testing = np.sqrt(np.mean((y_val_W_testing - y_pred_W_testing)**2))
     mae_W_testing  = np.mean(np.abs(y_val_W_testing - y_pred_W_testing))
+
+    # for plotting how error decreases - initiate list
+    total_error_sum =[rmse_T_testing + mae_T_testing + rmse_W_testing + mae_W_testing,]
     
     for i in range(len(additional_features)):
         # add additional features one by one to analyze their effect on predictions
@@ -333,7 +333,7 @@ if __name__ == "__main__":
             mae_W_testing = mae_W_new_feature
 
     # accepted features
-    print(features_testing)
+    print(f"Accepted features for horizon = {horizon}: {features_testing}")
 
     print("RMSE Temperature (updated features):", rmse_T_new_feature)
     print("MAE Temperature (updated features):", mae_T_new_feature)
@@ -341,13 +341,13 @@ if __name__ == "__main__":
     print("MAE Wind Speed (updated features):", mae_W_new_feature)
 
     # plotting error improvement
-    iteration = [1, 2, 3, 4, 5]
+    x_labels = ["original"] + additional_features
 
-    plt.plot(iteration, total_error_sum, label = "total error sum")
+    plt.plot(x_labels, total_error_sum)
 
-    plt.xlabel("Iteration")
-    plt.ylabel("Error")
-    plt.title("RMSE and MAE for temperature over time")
+    plt.xlabel("Additional Feature Added")
+    plt.ylabel("Total Error Sum")
+    plt.title("How RMSE and MAE Change with Additional Features")
 
     plt.legend()
     plt.show()
