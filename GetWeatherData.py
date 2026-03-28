@@ -136,9 +136,18 @@ def build_prediction_model(train: pd.DataFrame, val: pd.DataFrame, features: lis
     return y_pred, y_val    
 
 if __name__ == "__main__":
-    # use data caputring all seasons 
-    start_date = "2024-06-01"
-    end_date = "2025-08-31"
+    # use one full year of data 
+    start_date = "2024-12-01"
+    end_date = "2026-02-28"
+
+    # seasonal analysis
+    # train Jun 1 2024-Apr 30 2025, validate Jun 1 2025-Aug 31 2025
+    start_date_summer = "2024-06-01"
+    end_date_summer = "2025-08-31"
+
+    # train Dec 1, 2024-Nov 30, 2025, validate Dec 1, 2025-Feb 28, 2026
+    start_date_winter = "2024-12-01"
+    end_date_winter = "2026-02-28"
     
     montreal = Location(
         name="Montreal, QC",
@@ -157,7 +166,7 @@ if __name__ == "__main__":
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 3    # number of hours to predict into future
+    horizon = 24    # number of hours to predict into future
     
     # Features vector
     features = [
@@ -173,7 +182,7 @@ if __name__ == "__main__":
 
     df_model = df.dropna()  # remove data with missing values
 
-    val_hours = 92 * 24  # train Jun 1 2024-Apr 30 2025, validate Jun 1 2025-Aug 31 2025
+    val_hours = 90 * 24
     train, val = split_train_val(df_model, val_hours)
     
     y_pred_T, y_val_T = build_prediction_model(train, val, features, "target_T")
@@ -341,14 +350,27 @@ if __name__ == "__main__":
     print("MAE Wind Speed (updated features):", mae_W_new_feature)
 
     # plotting error improvement
-    x_labels = ["original"] + additional_features
+    x_labels = ["Original"] + additional_features
 
     plt.plot(x_labels, total_error_sum)
 
     plt.xlabel("Additional Feature Added")
     plt.ylabel("Total Error Sum")
-    plt.title("How RMSE and MAE Change with Additional Features")
+    plt.title("How Total Error Changes with Additional Features")
 
-    plt.legend()
+    for i, value in enumerate(total_error_sum):
+        plt.text(i, value + 0.01, f"{value:.2f}", ha='center', va='bottom', fontsize=8)
+
     plt.show()
 
+    # checking the variability of temperature in the winter vs. the summer
+    winter_T_std = np.std(fetch_open_meteo_hourly("2025-01-01", "2025-02-28")["temperature_2m"])
+    summer_T_std = np.std(fetch_open_meteo_hourly("2025-07-01", "2025-08-31")["temperature_2m"])
+    print(f"Standard deviation of temperature in the winter (Jan 1-Feb 28): {winter_T_std}")
+    print(f"Standard deviation of temperature in the summer (Jul 1-Aug 31): {summer_T_std}")
+
+    # checking variabiltiy of wind speed in the winter vs. summer
+    winter_W_std = np.std(fetch_open_meteo_hourly("2025-01-01", "2025-02-28")["wind_speed_10m"])
+    summer_W_std = np.std(fetch_open_meteo_hourly("2025-07-01", "2025-08-31")["wind_speed_10m"])
+    print(f"Standard deviation of wind speed in the winter (Jan 1-Feb 28): {winter_W_std}")
+    print(f"Standard deviation of wind speed in the summer (Jul 1-Aug 31): {summer_W_std}")
