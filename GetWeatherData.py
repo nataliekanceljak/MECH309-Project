@@ -157,7 +157,7 @@ if __name__ == "__main__":
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 12    # number of hours to predict into future
+    horizon = 3    # number of hours to predict into future
     
     # Features vector
     features = [
@@ -177,18 +177,6 @@ if __name__ == "__main__":
     train, val = split_train_val(df_model, val_hours)
     
     y_pred_T, y_val_T = build_prediction_model(train, val, features, "target_T")
-    
-    # # construct design matrix (for training)
-    # X_train = train[features].to_numpy()
-    
-    # # target values for temperature 
-    # y_train_T = train["target_T"].to_numpy()
-
-    # X_val = val[features].to_numpy()    # design matrix (for validation)
-    # y_val_T = val["target_T"].to_numpy()    # true values for validation
-
-    # theta_T, _, _, _ = np.linalg.lstsq(X_train, y_train_T)    # compute theta
-    # y_pred_T = X_val @ theta_T  # prediction equation
 
     rmse_T = np.sqrt(np.mean((y_val_T - y_pred_T)**2))  # RMSE error
     mae_T = np.mean(np.abs(y_val_T - y_pred_T))  # MAE error
@@ -220,19 +208,6 @@ if __name__ == "__main__":
     train, val = split_train_val(df_model, val_hours)
     
     y_pred_W, y_val_W = build_prediction_model(train, val, features, "target_W")
-    
-    # # design matrix
-    # X_train = train[features].to_numpy()
-    
-    # # target values for wind 
-    # y_train_W = train["target_W"].to_numpy()
-
-    # theta_W, _, _, _ = np.linalg.lstsq(X_train, y_train_W)
-
-    # X_val = val[features].to_numpy()
-    # y_val_W = val["target_W"].to_numpy()
-
-    # y_pred_W = X_val @ theta_W
 
     rmse_W = np.sqrt(np.mean((y_val_W - y_pred_W)**2))  # RMSE error
     mae_W = np.mean(np.abs(y_val_W - y_pred_W))  # MAE error
@@ -313,52 +288,52 @@ if __name__ == "__main__":
     
     # for plotting how error decreases - initiate list
     total_error_sum =[]
+
+    # intiate current error
+    y_pred_T_testing, y_val_T_testing = build_prediction_model(train, val, features_testing, "target_T")
+    y_pred_W_testing, y_val_W_testing = build_prediction_model(train, val, features_testing, "target_W")
+
+    # temperature
+    rmse_T_testing = np.sqrt(np.mean((y_val_T_testing - y_pred_T_testing)**2))
+    mae_T_testing  = np.mean(np.abs(y_val_T_testing - y_pred_T_testing))
+
+    # wind
+    rmse_W_testing = np.sqrt(np.mean((y_val_W_testing - y_pred_W_testing)**2))
+    mae_W_testing  = np.mean(np.abs(y_val_W_testing - y_pred_W_testing))
     
     for i in range(len(additional_features)):
         # add additional features one by one to analyze their effect on predictions
-        features_testing.append(additional_features[i])
-        X_train = train[features_testing].to_numpy()
-    
-        # target values for temperature 
-        y_train_T = train["target_T"].to_numpy()
-
-        X_val = val[features_testing].to_numpy()
-        y_val_T = val["target_T"].to_numpy()
-
-        theta_T, _, _, _ = np.linalg.lstsq(X_train, y_train_T)    # compute theta
-        y_pred_T = X_val @ theta_T  # prediction equation
-
-        rmse_T_new_feature = np.sqrt(np.mean((y_val_T - y_pred_T)**2))  # RMSE error
-        mae_T_new_feature = np.mean(np.abs(y_val_T - y_pred_T))  # MAE error
-
-        # Wind speed model
-        df["target_W"] = df["W"].shift(-horizon)
-        df_model = df.dropna()
-
-        train, val = split_train_val(df_model, val_hours)
+        trial_features = features_testing + [additional_features[i]]
         
-        # target values for wind 
-        y_train_W = train["target_W"].to_numpy()
+        # temperature
+        y_pred_T_new_feature, y_val_T_new_feature = build_prediction_model(train, val, trial_features, "target_T")
 
-        theta_W, _, _, _ = np.linalg.lstsq(X_train, y_train_W)
+        rmse_T_new_feature = np.sqrt(np.mean((y_val_T_new_feature - y_pred_T_new_feature)**2))  # RMSE error
+        mae_T_new_feature = np.mean(np.abs(y_val_T_new_feature - y_pred_T_new_feature))  # MAE error
 
-        X_val = val[features_testing].to_numpy()
-        y_val_W = val["target_W"].to_numpy()
+        # wind
+        y_pred_W_new_feature, y_val_W_new_feature = build_prediction_model(train, val, trial_features, "target_W")
 
-        y_pred_W = X_val @ theta_W
-
-        rmse_W_new_feature = np.sqrt(np.mean((y_val_W - y_pred_W)**2))  # RMSE error
-        mae_W_new_feature = np.mean(np.abs(y_val_W - y_pred_W))  # MAE error
+        rmse_W_new_feature = np.sqrt(np.mean((y_val_W_new_feature - y_pred_W_new_feature)**2))  # RMSE error
+        mae_W_new_feature = np.mean(np.abs(y_val_W_new_feature - y_pred_W_new_feature))  # MAE error
 
         # if error decreases overall with the new feature addition, add it to X
         error_sum = rmse_T_new_feature + mae_T_new_feature + rmse_W_new_feature + mae_W_new_feature
 
         total_error_sum.append(error_sum)
 
-        if (error_sum) < (rmse_T + mae_T + rmse_W + mae_W):
-            features.append(additional_features[i])
+        if error_sum < (rmse_T_testing + mae_T_testing + rmse_W_testing + mae_W_testing):
+            # features.append(additional_features[i])
+            features_testing = trial_features
 
-    print(features)
+            # update current error
+            rmse_T_testing = rmse_T_new_feature
+            mae_T_testing = mae_T_new_feature
+            rmse_W_testing = rmse_W_new_feature
+            mae_W_testing = mae_W_new_feature
+
+    # accepted features
+    print(features_testing)
 
     print("RMSE Temperature (updated features):", rmse_T_new_feature)
     print("MAE Temperature (updated features):", mae_T_new_feature)
