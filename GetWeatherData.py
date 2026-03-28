@@ -120,6 +120,21 @@ def split_train_val(data: pd.DataFrame, val_hours: int) -> Tuple[pd.DataFrame, p
         raise ValueError("Not enough samples for requested validation window.")
     return data.iloc[:-val_hours].copy(), data.iloc[-val_hours:].copy()
 
+def build_prediction_model(train: pd.DataFrame, val: pd.DataFrame, features: list, target_column: str) -> tuple[np.ndarray, np.ndarray]:
+    # construct design matrix (for training)
+    X_train = train[features].to_numpy()
+    
+    # target values for temperature 
+    y_train = train[target_column].to_numpy()
+
+    X_val = val[features].to_numpy()    # design matrix (for validation)
+    y_val = val[target_column].to_numpy()    # true values for validation
+
+    theta, _, _, _ = np.linalg.lstsq(X_train, y_train)    # compute theta
+    y_pred = X_val @ theta  # prediction equation
+
+    return y_pred, y_val    
+
 if __name__ == "__main__":
     # use data caputring all seasons 
     start_date = "2024-06-01"
@@ -161,16 +176,19 @@ if __name__ == "__main__":
     val_hours = 92 * 24  # train Jun 1 2024-Apr 30 2025, validate Jun 1 2025-Aug 31 2025
     train, val = split_train_val(df_model, val_hours)
     
-    X_train = train[features].to_numpy()
+    y_pred_T, y_val_T = build_prediction_model(train, val, features, "target_T")
     
-    # target values for temperature 
-    y_train_T = train["target_T"].to_numpy()
+    # # construct design matrix (for training)
+    # X_train = train[features].to_numpy()
+    
+    # # target values for temperature 
+    # y_train_T = train["target_T"].to_numpy()
 
-    X_val = val[features].to_numpy()
-    y_val_T = val["target_T"].to_numpy()
+    # X_val = val[features].to_numpy()    # design matrix (for validation)
+    # y_val_T = val["target_T"].to_numpy()    # true values for validation
 
-    theta_T, _, _, _ = np.linalg.lstsq(X_train, y_train_T)    # compute theta
-    y_pred_T = X_val @ theta_T  # prediction equation
+    # theta_T, _, _, _ = np.linalg.lstsq(X_train, y_train_T)    # compute theta
+    # y_pred_T = X_val @ theta_T  # prediction equation
 
     rmse_T = np.sqrt(np.mean((y_val_T - y_pred_T)**2))  # RMSE error
     mae_T = np.mean(np.abs(y_val_T - y_pred_T))  # MAE error
@@ -201,15 +219,20 @@ if __name__ == "__main__":
 
     train, val = split_train_val(df_model, val_hours)
     
-    # target values for wind 
-    y_train_W = train["target_W"].to_numpy()
+    y_pred_W, y_val_W = build_prediction_model(train, val, features, "target_W")
+    
+    # # design matrix
+    # X_train = train[features].to_numpy()
+    
+    # # target values for wind 
+    # y_train_W = train["target_W"].to_numpy()
 
-    theta_W, _, _, _ = np.linalg.lstsq(X_train, y_train_W)
+    # theta_W, _, _, _ = np.linalg.lstsq(X_train, y_train_W)
 
-    X_val = val[features].to_numpy()
-    y_val_W = val["target_W"].to_numpy()
+    # X_val = val[features].to_numpy()
+    # y_val_W = val["target_W"].to_numpy()
 
-    y_pred_W = X_val @ theta_W
+    # y_pred_W = X_val @ theta_W
 
     rmse_W = np.sqrt(np.mean((y_val_W - y_pred_W)**2))  # RMSE error
     mae_W = np.mean(np.abs(y_val_W - y_pred_W))  # MAE error
