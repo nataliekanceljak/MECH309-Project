@@ -166,7 +166,7 @@ if __name__ == "__main__":
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 24    # number of hours to predict into future
+    horizon = 3    # number of hours to predict into future
     
     # Features vector
     features = [
@@ -285,6 +285,7 @@ if __name__ == "__main__":
     print(f"Baseline RMSE Wind Speed:", rmse_base_W)
     print(f"Baseline MAE Wind Speed:", mae_base_W)
     
+    # SECTION 8
     # testing which features improve the prediction
     additional_features = ["Wd", "RH", "P", "Prec", "Cloud"]
     features_testing = [
@@ -363,6 +364,7 @@ if __name__ == "__main__":
 
     plt.show()
 
+    # SECTION 9
     # checking the variability of temperature in the winter vs. the summer
     winter_T_std = np.std(fetch_open_meteo_hourly("2025-01-01", "2025-02-28")["temperature_2m"])
     summer_T_std = np.std(fetch_open_meteo_hourly("2025-07-01", "2025-08-31")["temperature_2m"])
