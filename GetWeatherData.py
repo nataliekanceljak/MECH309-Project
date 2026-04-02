@@ -252,7 +252,6 @@ if __name__ == "__main__":
     
     print_error_table(horizon, T_model_errors, None, "Temperature (°C)")
 
-
     # ===================================================
     # SECTION 7.2 — WIND SPEED MODEL
     # ===================================================
