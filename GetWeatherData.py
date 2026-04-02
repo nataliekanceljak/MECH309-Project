@@ -135,17 +135,29 @@ def build_prediction_model(train: pd.DataFrame, val: pd.DataFrame, features: lis
 
     return y_pred, y_val    
 
-if __name__ == "__main__":
-    # use one full year of data 
-    start_date = "2024-12-01"
-    end_date = "2026-02-28"
+def compute_errors(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[float, float]:
+    """Return (RMSE, MAE) for a pair of arrays."""
+    residuals = y_true - y_pred
+    return float(np.sqrt(np.mean(residuals ** 2))), float(np.mean(np.abs(residuals)))
 
-    # seasonal analysis
-    # train Jun 1 2024-Apr 30 2025, validate Jun 1 2025-Aug 31 2025
+def print_header(title: str) -> None:
+    """Print a section header to the console."""
+    bar = "=" * 51
+    print(f"\n{bar}")
+    print(f"  {title}")
+    print(bar)
+
+if __name__ == "__main__":
+    # Use one full year of data 
+    start_date = "2025-01-01"
+    end_date = "2025-12-31"
+
+    # Seasonal analysis
+    # Train Jun 1 2024-Apr 30 2025, validate Jun 1 2025-Aug 31 2025
     start_date_summer = "2024-06-01"
     end_date_summer = "2025-08-31"
 
-    # train Dec 1, 2024-Nov 30, 2025, validate Dec 1, 2025-Feb 28, 2026
+    # Train Dec 1, 2024-Nov 30, 2025, validate Dec 1, 2025-Feb 28, 2026
     start_date_winter = "2024-12-01"
     end_date_winter = "2026-02-28"
     
@@ -166,7 +178,7 @@ if __name__ == "__main__":
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 3    # number of hours to predict into future
+    horizon = 1    # number of hours to predict into future
     
     # Features vector
     features = [
@@ -176,31 +188,26 @@ if __name__ == "__main__":
     "sin_day", "cos_day",
     "sin_year", "cos_year",
     ]
+    additional_features = ["Wd", "RH", "P", "Prec", "Cloud"]
 
-    # Temperature model
+    # ===================================================
+    # SECTION 7.1 — TEMPERATURE MODEL
+    # ===================================================
+    print_header("SECTION 7.1 — TEMPERATURE MODEL")
     df["target_T"] = df["T"].shift(-horizon)
 
     df_model = df.dropna()  # remove data with missing values
 
-    val_hours = 90 * 24
+    val_hours = 92 * 24  # 3 months
     train, val = split_train_val(df_model, val_hours)
     
     y_pred_T, y_val_T = build_prediction_model(train, val, features, "target_T")
 
-    rmse_T = np.sqrt(np.mean((y_val_T - y_pred_T)**2))  # RMSE error
-    mae_T = np.mean(np.abs(y_val_T - y_pred_T))  # MAE error
+    rmse_T, mae_T = compute_errors(y_val_T, y_pred_T)
     print(f"RMSE Temperature:", rmse_T)
     print(f"MAE Temperature:", mae_T)
 
-    # Plot of TEMP data for chosen interval
-    plt.figure()
-    df["T"].plot(linewidth=1)
-    plt.title("Montreal hourly temperature (2m)")
-    plt.ylabel("T (°C)")
-    plt.tight_layout()
-    plt.show()
-
-    # Plot of true vs. predicted TEMP val data
+    # Plot of true vs. predicted temp val data
     plt.figure()
     plt.plot(y_val_T, label="Actual")
     plt.plot(y_pred_T, label="Predicted")
@@ -210,28 +217,20 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
-    # Wind speed model
+    # ===================================================
+    # SECTION 7.2 — WIND SPEED MODEL
+    # ===================================================
+    print_header("SECTION 7.2 — WIND SPEED MODEL")
     df["target_W"] = df["W"].shift(-horizon)
     df_model = df.dropna()
-
     train, val = split_train_val(df_model, val_hours)
-    
     y_pred_W, y_val_W = build_prediction_model(train, val, features, "target_W")
 
-    rmse_W = np.sqrt(np.mean((y_val_W - y_pred_W)**2))  # RMSE error
-    mae_W = np.mean(np.abs(y_val_W - y_pred_W))  # MAE error
+    rmse_W, mae_W = compute_errors(y_val_W, y_pred_W)
     print(f"RMSE Wind Speed:", rmse_W)
     print(f"MAE Wind Speed:", mae_W)
 
-    # Plot of WIND data for chosen interval
-    plt.figure()
-    df["W"].plot(linewidth=1)
-    plt.title("Montreal hourly wind speed (10m)")
-    plt.ylabel("W (km/h)")
-    plt.tight_layout()
-    plt.show()
-
-    # Plot of true vs. predicted WIND val data
+    # Plot of true vs. predicted wind val data
     plt.figure()
     plt.plot(y_val_W, label="Actual")
     plt.plot(y_pred_W, label="Predicted")
@@ -241,64 +240,57 @@ if __name__ == "__main__":
     plt.legend()
     plt.show()
 
-    # Baseline model for temperature
+    # ===================================================
+    # SECTION 7.3 — TEMPERATURE BASELINE MODEL 
+    # ===================================================
+    print_header("SECTION 7.3 — TEMPERATURE BASELINE MODEL")
     baseline_T = val["T"].to_numpy()
 
     plt.figure()
-
     plt.plot(y_val_T, label="Actual")
     plt.plot(y_pred_T, label="Model")
     plt.plot(baseline_T, label="Baseline")
-
     plt.xlabel("Time (hours)")
     plt.ylabel("Temperature (°C)")
     plt.title("Actual vs Model vs Baseline for Temperature")
-
     plt.legend()
     plt.show()
 
-    rmse_base_T = np.sqrt(np.mean((y_val_T - baseline_T)**2))
-    mae_base_T  = np.mean(np.abs(y_val_T - baseline_T))
-
+    rmse_base_T, mae_base_T = compute_errors(y_val_T, baseline_T)
     print(f"Baseline RMSE Temperature:", rmse_base_T)
     print(f"Baseline MAE Temperature:", mae_base_T)
 
-    # Baseline model for wind
+    # ===================================================
+    # SECTION 7.3 — WIND SPEED BASELINE MODEL 
+    # ===================================================
+    print_header("SECTION 7.4 — WIND SPEED BASELINE MODEL")
     baseline_W = val["W"].to_numpy()
 
     plt.figure()
-
     plt.plot(y_val_W, label="Actual")
     plt.plot(y_pred_W, label="Model")
     plt.plot(baseline_W, label="Baseline")
-
     plt.xlabel("Time (hours)")
     plt.ylabel("Wind speed (km/h)")
     plt.title("Actual vs Model vs Baseline for Wind Speed")
-
     plt.legend()
     plt.show()
     
-    rmse_base_W = np.sqrt(np.mean((y_val_W - baseline_W)**2))
-    mae_base_W  = np.mean(np.abs(y_val_W - baseline_W))
-
+    rmse_base_W, mae_base_W = compute_errors(y_val_W, baseline_W)
     print(f"Baseline RMSE Wind Speed:", rmse_base_W)
     print(f"Baseline MAE Wind Speed:", mae_base_W)
     
-    # SECTION 8
-    # testing which features improve the prediction
+    # ===================================================
+    # SECTION 8 — FEATURE SELECTION 
+    # ===================================================
+    print_header("SECTION 8 — FEATURE SELECTION")
+
+    # Testing which features improve the prediction
     additional_features = ["Wd", "RH", "P", "Prec", "Cloud"]
-    features_testing = [
-    "T", "W",
-    "T_lag1", "T_lag2", "T_lag3", "T_lag6", "T_lag12", "T_lag24",
-    "W_lag1", "W_lag3", "W_lag6", "W_lag12",
-    "sin_day", "cos_day",
-    "sin_year", "cos_year",
-    ]
 
     # intiate current error
-    y_pred_T_testing, y_val_T_testing = build_prediction_model(train, val, features_testing, "target_T")
-    y_pred_W_testing, y_val_W_testing = build_prediction_model(train, val, features_testing, "target_W")
+    y_pred_T_testing, y_val_T_testing = build_prediction_model(train, val, features, "target_T")
+    y_pred_W_testing, y_val_W_testing = build_prediction_model(train, val, features, "target_W")
 
     # temperature
     rmse_T_testing = np.sqrt(np.mean((y_val_T_testing - y_pred_T_testing)**2))
@@ -313,7 +305,7 @@ if __name__ == "__main__":
     
     for i in range(len(additional_features)):
         # add additional features one by one to analyze their effect on predictions
-        trial_features = features_testing + [additional_features[i]]
+        trial_features = features + [additional_features[i]]
         
         # temperature
         y_pred_T_new_feature, y_val_T_new_feature = build_prediction_model(train, val, trial_features, "target_T")
@@ -334,7 +326,7 @@ if __name__ == "__main__":
 
         if error_sum < (rmse_T_testing + mae_T_testing + rmse_W_testing + mae_W_testing):
             # features.append(additional_features[i])
-            features_testing = trial_features
+            features = trial_features
 
             # update current error
             rmse_T_testing = rmse_T_new_feature
@@ -343,12 +335,12 @@ if __name__ == "__main__":
             mae_W_testing = mae_W_new_feature
 
     # accepted features
-    print(f"Accepted features for horizon = {horizon}: {features_testing}")
+    print(f"Accepted features for horizon = {horizon}: {features}")
 
-    print("RMSE Temperature (updated features):", rmse_T_new_feature)
-    print("MAE Temperature (updated features):", mae_T_new_feature)
-    print("RMSE Wind Speed (updated features):", rmse_W_new_feature)
-    print("MAE Wind Speed (updated features):", mae_W_new_feature)
+    print("RMSE Temperature (optimized features):", rmse_T_new_feature)
+    print("MAE Temperature (optimized features):", mae_T_new_feature)
+    print("RMSE Wind Speed (optimized features):", rmse_W_new_feature)
+    print("MAE Wind Speed (optimized features):", mae_W_new_feature)
 
     # plotting error improvement
     x_labels = ["Original"] + additional_features
@@ -364,7 +356,11 @@ if __name__ == "__main__":
 
     plt.show()
 
-    # SECTION 9
+    # ===================================================
+    # SECTION 9 — SEASONAL ANALYSIS
+    # ===================================================
+    print_header("SECTION 8 — FEATURE SELECTION")
+
     # checking the variability of temperature in the winter vs. the summer
     winter_T_std = np.std(fetch_open_meteo_hourly("2025-01-01", "2025-02-28")["temperature_2m"])
     summer_T_std = np.std(fetch_open_meteo_hourly("2025-07-01", "2025-08-31")["temperature_2m"])
