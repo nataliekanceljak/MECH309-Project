@@ -136,28 +136,73 @@ def build_prediction_model(train: pd.DataFrame, val: pd.DataFrame, features: lis
     return y_pred, y_val    
 
 def compute_errors(y_true: np.ndarray, y_pred: np.ndarray) -> tuple[float, float]:
-    """Return (RMSE, MAE) for a pair of arrays."""
+    """
+    Return (RMSE, MAE) for a pair of arrays.
+    """
     residuals = y_true - y_pred
     return float(np.sqrt(np.mean(residuals ** 2))), float(np.mean(np.abs(residuals)))
 
 def print_header(title: str) -> None:
-    """Print a section header to the console."""
+    """
+    Print a section header to the console.
+    """
     bar = "=" * 51
     print(f"\n{bar}")
     print(f"  {title}")
     print(bar)
 
+def print_error_table(
+    horizons: List[int],
+    model_errors: List[Tuple[float, float]],
+    baseline_errors: List[Tuple[float, float]] | None,
+    variable: str,
+) -> None:
+    """
+    Print a formatted RMSE / MAE table for one parameter across horizons.
+    """
+    col = 14
+    print(f"\n  {variable} errors")
+    if baseline_errors:
+        print(f"  {'Horizon':>8}  {'Model RMSE':>{col}}  {'Model MAE':>{col}}  {'Base RMSE':>{col}}  {'Base MAE':>{col}}  {'ΔRMSE %':>8}  {'ΔMAE %':>8}")
+        for h, (rmse_m, mae_m), (rmse_b, mae_b) in zip(horizons, model_errors, baseline_errors):
+            pct_rmse = 100 * (rmse_b - rmse_m) / rmse_b
+            pct_mae  = 100 * (mae_b  - mae_m)  / mae_b
+            print(f"  {h:>8}  {rmse_m:>{col}.4f}  {mae_m:>{col}.4f}  {rmse_b:>{col}.4f}  {mae_b:>{col}.4f}  {pct_rmse:>7.1f}%  {pct_mae:>7.1f}%")
+    else:
+        print(f"  {'Horizon':>8}  {'RMSE':>{col}}  {'MAE':>{col}}")
+        for h, (rmse, mae) in zip(horizons, model_errors):
+            print(f"  {h:>8}  {rmse:>{col}.4f}  {mae:>{col}.4f}")
+
+def plot_actual_vs_predicted(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    title: str,
+    ylabel: str,
+    baseline: np.ndarray | None = None,
+) -> None:
+    plt.figure()
+    plt.plot(y_true, label="Actual")
+    plt.plot(y_pred, label="Predicted" if baseline is None else "Model")
+    if baseline is not None:
+        plt.plot(baseline, label="Baseline")
+    plt.xlabel("Time (hours)")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
-    # Use one full year of data 
+    # ===================================================
+    # DATE, FEATURE, AND HORIZON SET UP
+    # =================================================== 
     start_date = "2025-01-01"
     end_date = "2025-12-31"
 
-    # Seasonal analysis
-    # Train Jun 1 2024-Apr 30 2025, validate Jun 1 2025-Aug 31 2025
     start_date_summer = "2024-06-01"
     end_date_summer = "2025-08-31"
 
-    # Train Dec 1, 2024-Nov 30, 2025, validate Dec 1, 2025-Feb 28, 2026
     start_date_winter = "2024-12-01"
     end_date_winter = "2026-02-28"
     
@@ -172,14 +217,15 @@ if __name__ == "__main__":
     df_raw = fetch_open_meteo_hourly(start_date, end_date, location=montreal)
     print("Preprocessing...")
     df = preprocess(df_raw)
-
     print(f"Data between {start_date} and {end_date} is used.")
     
     df = add_lags(df, "T", [1, 2, 3, 6, 12, 24])
     df = add_lags(df, "W", [1, 3, 6, 12])
 
-    horizon = 1    # number of hours to predict into future
-    
+    horizon = [1, 3, 6, 12, 24, 48]    # number of hours to predict into future
+
+    val_hours = 92 * 24  # always predict last 3 months
+
     # Features vector
     features = [
     "T", "W",
@@ -194,99 +240,75 @@ if __name__ == "__main__":
     # SECTION 7.1 — TEMPERATURE MODEL
     # ===================================================
     print_header("SECTION 7.1 — TEMPERATURE MODEL")
-    df["target_T"] = df["T"].shift(-horizon)
 
-    df_model = df.dropna()  # remove data with missing values
-
-    val_hours = 92 * 24  # 3 months
-    train, val = split_train_val(df_model, val_hours)
+    T_model_errors = []
+    for h in horizon:
+        df["target_T"] = df["T"].shift(-h)
+        df_model = df.dropna()  # remove data with missing values
+        train, val = split_train_val(df_model, val_hours)
+        y_pred_T, y_val_T = build_prediction_model(train, val, features, "target_T")
+        T_model_errors.append(compute_errors(y_val_T, y_pred_T))
+        plot_actual_vs_predicted(y_val_T, y_pred_T, f"Validation: Actual vs Predicted Temperature with h = {h}", "Temperature (°C)")
     
-    y_pred_T, y_val_T = build_prediction_model(train, val, features, "target_T")
+    print_error_table(horizon, T_model_errors, None, "Temperature (°C)")
 
-    rmse_T, mae_T = compute_errors(y_val_T, y_pred_T)
-    print(f"RMSE Temperature:", rmse_T)
-    print(f"MAE Temperature:", mae_T)
-
-    # Plot of true vs. predicted temp val data
-    plt.figure()
-    plt.plot(y_val_T, label="Actual")
-    plt.plot(y_pred_T, label="Predicted")
-    plt.xlabel("Time (hours)")
-    plt.ylabel("Temperature (°C)")
-    plt.title("Validation: Actual vs Predicted Temperature")
-    plt.legend()
-    plt.show()
 
     # ===================================================
     # SECTION 7.2 — WIND SPEED MODEL
     # ===================================================
     print_header("SECTION 7.2 — WIND SPEED MODEL")
-    df["target_W"] = df["W"].shift(-horizon)
-    df_model = df.dropna()
-    train, val = split_train_val(df_model, val_hours)
-    y_pred_W, y_val_W = build_prediction_model(train, val, features, "target_W")
 
-    rmse_W, mae_W = compute_errors(y_val_W, y_pred_W)
-    print(f"RMSE Wind Speed:", rmse_W)
-    print(f"MAE Wind Speed:", mae_W)
-
-    # Plot of true vs. predicted wind val data
-    plt.figure()
-    plt.plot(y_val_W, label="Actual")
-    plt.plot(y_pred_W, label="Predicted")
-    plt.xlabel("Time (hours)")
-    plt.ylabel("Wind speed (km/h))")
-    plt.title("Validation: Actual vs Predicted Wind Speed")
-    plt.legend()
-    plt.show()
+    W_model_errors = []
+    for h in horizon:
+        df["target_W"] = df["W"].shift(-h)
+        df_model = df.dropna()  # remove data with missing values
+        train, val = split_train_val(df_model, val_hours)
+        y_pred_W, y_val_W = build_prediction_model(train, val, features, "target_W")
+        W_model_errors.append(compute_errors(y_val_W, y_pred_W))
+        plot_actual_vs_predicted(y_val_W, y_pred_W, f"Validation: Actual vs Predicted Wind Speed with h = {h}", "Wind Speed (km/h)")
+    
+    print_error_table(horizon, W_model_errors, None, "Wind Speed (km/h)")
 
     # ===================================================
     # SECTION 7.3 — TEMPERATURE BASELINE MODEL 
     # ===================================================
     print_header("SECTION 7.3 — TEMPERATURE BASELINE MODEL")
-    baseline_T = val["T"].to_numpy()
 
-    plt.figure()
-    plt.plot(y_val_T, label="Actual")
-    plt.plot(y_pred_T, label="Model")
-    plt.plot(baseline_T, label="Baseline")
-    plt.xlabel("Time (hours)")
-    plt.ylabel("Temperature (°C)")
-    plt.title("Actual vs Model vs Baseline for Temperature")
-    plt.legend()
-    plt.show()
+    T_baseline_errors = []
+    for h in horizon:
+        df_h = df.copy()
+        df_h["target_T"] = df_h["T"].shift(-h)
+        df_h = df_h.dropna()
+        train, val = split_train_val(df_h, val_hours)
+        y_pred_T, y_val_T = build_prediction_model(train, val, features, "target_T")
+        baseline_T = val["T"].to_numpy()
+        T_baseline_errors.append(compute_errors(y_val_T, baseline_T))
+        plot_actual_vs_predicted(y_val_T, y_pred_T, f"Validation: Actual vs Predicted Temperature with h = {h}", "Temperature (°C)", baseline_T)
 
-    rmse_base_T, mae_base_T = compute_errors(y_val_T, baseline_T)
-    print(f"Baseline RMSE Temperature:", rmse_base_T)
-    print(f"Baseline MAE Temperature:", mae_base_T)
+    print_error_table(horizon, T_model_errors, T_baseline_errors, "Temperature (°C)")
 
     # ===================================================
     # SECTION 7.3 — WIND SPEED BASELINE MODEL 
     # ===================================================
     print_header("SECTION 7.4 — WIND SPEED BASELINE MODEL")
-    baseline_W = val["W"].to_numpy()
+    
+    W_baseline_errors = []
+    for h in horizon:
+        df_h = df.copy()
+        df_h["target_W"] = df_h["W"].shift(-h)
+        df_h = df_h.dropna()
+        train, val = split_train_val(df_h, val_hours)
+        y_pred_W, y_val_W = build_prediction_model(train, val, features, "target_W")
+        baseline_W = val["W"].to_numpy()
+        W_baseline_errors.append(compute_errors(y_val_W, baseline_W))
+        plot_actual_vs_predicted(y_val_W, y_pred_W, f"Validation: Actual vs Predicted Wind Speed with h = {h}", "Wind Speed (km/h)", baseline_W)
 
-    plt.figure()
-    plt.plot(y_val_W, label="Actual")
-    plt.plot(y_pred_W, label="Model")
-    plt.plot(baseline_W, label="Baseline")
-    plt.xlabel("Time (hours)")
-    plt.ylabel("Wind speed (km/h)")
-    plt.title("Actual vs Model vs Baseline for Wind Speed")
-    plt.legend()
-    plt.show()
-    
-    rmse_base_W, mae_base_W = compute_errors(y_val_W, baseline_W)
-    print(f"Baseline RMSE Wind Speed:", rmse_base_W)
-    print(f"Baseline MAE Wind Speed:", mae_base_W)
-    
+    print_error_table(horizon, W_model_errors, W_baseline_errors, "Wind Speed (km/h)")
+
     # ===================================================
     # SECTION 8 — FEATURE SELECTION 
     # ===================================================
     print_header("SECTION 8 — FEATURE SELECTION")
-
-    # Testing which features improve the prediction
-    additional_features = ["Wd", "RH", "P", "Prec", "Cloud"]
 
     # intiate current error
     y_pred_T_testing, y_val_T_testing = build_prediction_model(train, val, features, "target_T")
