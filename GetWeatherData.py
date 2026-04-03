@@ -167,7 +167,7 @@ def print_error_table(
         for h, (rmse_m, mae_m), (rmse_b, mae_b) in zip(horizons, model_errors, baseline_errors):
             pct_rmse = 100 * (rmse_b - rmse_m) / rmse_m
             pct_mae  = 100 * (mae_b  - mae_m)  / mae_m
-            print(f"  {h:>8}  {rmse_m:>{col}.4f}  {mae_m:>{col}.4f}  {rmse_b:>{col}.4f}  {mae_b:>{col}.4f}  {pct_rmse:>7.1f}%  {pct_mae:>7.1f}%")
+            print(f"  {h:>8}  {rmse_m:>{col}.4f}  {mae_m:>{col}.4f}  {rmse_b:>{col}.4f}  {mae_b:>{col}.4f}  {pct_rmse:>7.2f}  {pct_mae:>7.2f}")
     else:
         print(f"  {'Horizon':>8}  {'RMSE':>{col}}  {'MAE':>{col}}")
         for h, (rmse, mae) in zip(horizons, model_errors):
