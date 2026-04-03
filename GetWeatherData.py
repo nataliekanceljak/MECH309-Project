@@ -165,9 +165,9 @@ def print_error_table(
     if baseline_errors:
         print(f"  {'Horizon':>8}  {'Model RMSE':>{col}}  {'Model MAE':>{col}}  {'Base RMSE':>{col}}  {'Base MAE':>{col}}  {'ΔRMSE %':>8}  {'ΔMAE %':>8}")
         for h, (rmse_m, mae_m), (rmse_b, mae_b) in zip(horizons, model_errors, baseline_errors):
-            pct_rmse = 100 * (rmse_b - rmse_m) / rmse_b
-            pct_mae  = 100 * (mae_b  - mae_m)  / mae_b
-            print(f"  {h:>8}  {rmse_m:>{col}.4f}  {mae_m:>{col}.4f}  {rmse_b:>{col}.4f}  {mae_b:>{col}.4f}  {pct_rmse:>7.1f}%  {pct_mae:>7.1f}%")
+            pct_rmse = 100 * (rmse_b - rmse_m) / rmse_m
+            pct_mae  = 100 * (mae_b  - mae_m)  / mae_m
+            print(f"  {h:>8}  {rmse_m:>{col}.4f}  {mae_m:>{col}.4f}  {rmse_b:>{col}.4f}  {mae_b:>{col}.4f}  {pct_rmse:>7.2f}  {pct_mae:>7.2f}")
     else:
         print(f"  {'Horizon':>8}  {'RMSE':>{col}}  {'MAE':>{col}}")
         for h, (rmse, mae) in zip(horizons, model_errors):
@@ -291,10 +291,12 @@ if __name__ == "__main__":
 
         # Accepted features
         print(f"Accepted features for horizon = {h:>2}: {features}")
-        print("RMSE Temperature (optimized features):", rmse_T_new_feature)
-        print("MAE Temperature (optimized features):", mae_T_new_feature)
-        print("RMSE Wind Speed (optimized features):", rmse_W_new_feature)
-        print("MAE Wind Speed (optimized features):", mae_W_new_feature)
+        print(f"RMSE Temperature (optimized features): {rmse_T_new_feature:.4f}")
+        print(f"MAE Temperature (optimized features): {mae_T_new_feature:.4f}")
+        print(f"RMSE Wind Speed (optimized features): {rmse_W_new_feature:.4f}")
+        print(f"MAE Wind Speed (optimized features): {mae_W_new_feature:.4f}")
+        error = rmse_T_new_feature + mae_T_new_feature + rmse_W_new_feature + mae_W_new_feature
+        print(f"Total error sum after additional features = {error:.4f}")
 
         # Plotting Error Improvement
         x_labels = ["Original"] + additional_features
@@ -324,6 +326,10 @@ if __name__ == "__main__":
         y_pred_T, y_val_T = build_prediction_model(train, val, selected_features, "target_T")
         T_model_errors.append(compute_errors(y_val_T, y_pred_T))
         plot_actual_vs_predicted(y_val_T, y_pred_T, f"Validation: Actual vs Predicted Temperature with h = {h}", "Temperature (°C)")
+
+        y_pred_T, y_val_T = build_prediction_model(train, val, base_features, "target_T")
+        T_og_errors = np.sum(compute_errors(y_val_T, y_pred_T))
+
     
     print_error_table(horizon, T_model_errors, None, "Temperature (°C)")
 
@@ -341,6 +347,12 @@ if __name__ == "__main__":
         y_pred_W, y_val_W = build_prediction_model(train, val, selected_features, "target_W")
         W_model_errors.append(compute_errors(y_val_W, y_pred_W))
         plot_actual_vs_predicted(y_val_W, y_pred_W, f"Validation: Actual vs Predicted Wind Speed with h = {h}", "Wind Speed (km/h)")
+
+        y_pred_W, y_val_W = build_prediction_model(train, val, base_features, "target_W")
+        W_og_errors = np.sum(compute_errors(y_val_W, y_pred_W))
+
+        og_errors = T_og_errors + W_og_errors
+        print(f"h = {h}: Total error sum before additional features = {og_errors:.4f}")
     
     print_error_table(horizon, W_model_errors, None, "Wind Speed (km/h)")
 
