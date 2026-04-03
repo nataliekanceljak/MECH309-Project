@@ -1,10 +1,10 @@
 # Weather Prediction Using Linear Regression Model
 
-Simple overview of use/purpose.
+A prediction model for Montreal's weather using linear least squares and time-lag features.
 
 ## Description
 
-An in-depth paragraph about your project and overview of use.
+This project develops a data-driven weather prediction model to forecast temperature and wind speed in Montreal using historical hourly data from the Open-Meteo API. The model is based on linear regression and incorporates current measurements, lagged variables, and periodic time features to capture daily and seasonal patterns. By formulating the problem as a least squares system, the model provides a computationally efficient alternative to large-scale Numerical Weather Prediction (NWP) models while maintaining reasonable predictive accuracy. The model is evaluated using RMSE and MAE and compared against a persistence baseline.
 
 ## Getting Started
 
