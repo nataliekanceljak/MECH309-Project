@@ -1,4 +1,4 @@
-# Weather Prediction Using Linear Regression Model
+# Weather Prediction Using Linear Regression Model 🌥️
 
 A prediction model for Montreal's weather using linear least squares and time-lag features.
 
