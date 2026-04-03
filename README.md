@@ -10,8 +10,11 @@ This project develops a data-driven weather prediction model to forecast tempera
 
 ### Dependencies
 
-* Describe any prerequisites, libraries, OS version, etc., needed before installing program.
-* ex. Windows 10
+The following Python libraries are required with minimum version requirements:
+- numpy 1.24
+- pandas 2.0
+- matplotlib 3.7
+- requests 2.31
 
 ### Installing
 
@@ -27,11 +30,13 @@ code blocks for commands
 ```
 
 ## Help
-
-Any advise for common problems or issues.
-```
-command to run if program contains helper info
-```
+### Common Issues
+- #### HTTP 400 Error
+  Ensure that the requested dates are in the past (Open-Meteo archive API does not support future dates).
+- #### NaN values causing errors
+  Make sure .dropna() is applied after creating lag features and target variables.
+- #### Plots not showing
+  Ensure matplotlib is properly installed and you are running in an environment that supports plotting.
 
 ## Authors
 
