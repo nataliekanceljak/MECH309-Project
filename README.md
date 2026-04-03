@@ -50,8 +50,8 @@ The program will output:
 
 ## Authors
 
-Sally Jeon — Mechanical Engineering Student, McGill University
-Natalie Kanceljak — Mechanical Engineering Student, McGill University
+- Sally Jeon — Mechanical Engineering Student, McGill University
+- Natalie Kanceljak — Mechanical Engineering Student, McGill University
 
 ## Acknowledgments
 
